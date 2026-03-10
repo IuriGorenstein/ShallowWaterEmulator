@@ -2,6 +2,7 @@
 A Physics Informing Shallow-Water Emulator using a Lie Auto-Encoder to construct a linear solver of the AB3-AM4 shallow water algorithm.
 
 The code present in SWE.py file was addapted from a previous code elaborated by Pedro S. Peixoto, professor in the Mathematical Institute of University of São Paulo, São Paulo, Brazil. 
+The original SWE.py code can be found at [https://www.ime.usp.br/pedrosp/](https://www.ime.usp.br/~pedrosp/modelagem-numerica-atmosfera/), in the jupyter notebook from "Shallow water equations on the straight line and their discretization by differences/finite volumes on a shifted mesh" class.
 The adaptations are:
   1 - Inclusion of the AB3-AM4 shallow water tendecies calculations
   2 - Neural network training functions.
