@@ -8,4 +8,4 @@ The adaptations are:
 + Neural network training functions.
 + Neural Network integrations of the shallow water variables.
 
-The remaining files and code are part of the Ph.D thesis of Iuri Gorenstein in the Oceanographic Institute of University of São Paulo, São Paulo, Brazil.
+The remaining files and codes are part of the Ph.D thesis of Iuri Gorenstein in the Oceanographic Institute of University of São Paulo, São Paulo, Brazil.
