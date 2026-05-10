@@ -7,5 +7,6 @@ The adaptations are:
 + Inclusion of the AB3-AM4 shallow water calculations in the tend functions from SWE_2D_num_method.
 + Neural network training functions.
 + Neural Network integrations of the shallow water variables.
++ Adaptation of plotting and diagnostics tools.
 
 The remaining files and codes are part of the Ph.D thesis of Iuri Gorenstein in the Oceanographic Institute of University of São Paulo, São Paulo, Brazil.
