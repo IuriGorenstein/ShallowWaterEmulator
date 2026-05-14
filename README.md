@@ -8,6 +8,7 @@ The adaptations are:
 + Neural network training functions.
 + Neural Network integrations of the shallow water variables.
 + Adaptation of plotting and diagnostics tools.
+  
 The remaining files and codes are part of the Ph.D thesis of Iuri Gorenstein in the Oceanographic Institute of University of São Paulo, São Paulo, Brazil.
 
 The training files of a LieAE have been uploaded to the repository (folder S26WE_pinnS4_dt+_ReLU6.0.1.0). It contains the figures from training and testing of the non-lienar geostrofic equilibrium test case (networks best score), and the complete training logs (train_his.html), containing learning rate, and evolution of loss functions in the training and validation dataset.
