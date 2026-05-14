@@ -1,5 +1,5 @@
-Folder containing a simulation of the Geostrophic Equilibrium with small Perturbation Initial Conditions.
+Folder containing a simulation of the Geostrophic Equilibrium with small perturbation initial condition.
+Each simulation has 4800 steps in total.
 The GIF name indicates which model has been used to produce the simulation.
-The Bias gif is the bias between the two deterministic models (AB3-AM4 and Deterministic-AB3AM4)
-
-The final state figures are the last frame from each simulation.
+The Bias gif is the bias between the two deterministic models (AB3-AM4 and Deterministic-AB3AM4.
+The final state figures are the last frame from each simulation GIF.
