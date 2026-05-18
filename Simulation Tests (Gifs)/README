@@ -3,3 +3,6 @@ Each simulation has 4800 steps in total.
 The GIF name indicates which model has been used to produce the simulation.
 The Bias gif is the bias between the two deterministic models (AB3-AM4 and Deterministic-AB3AM4.
 The final state figures are the last frame from each simulation GIF.
+
+The colorbars from the AB3-AM4 and LieAE figures and GIFs are −500 to 1300 meters (Zeta plots) and −8∗10−5 to 8∗10−5 s−1 (vorticity plots).
+The colorbars from the Bias figures and GIFs  are 1300 to 1300 meters (Zeta plots) and −8∗10−5 to 8∗10−5 s−1 (vorticity plots).
