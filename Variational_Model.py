@@ -90,7 +90,7 @@ class BetaNet(nn.Module):
         if self.typeA: # momentum
             bilinear_indim1 = 8 # Drhs
             bilinear_indim2 = 7 # U.V
-            bilinear_outdim = 7 # uh, vh
+            bilinear_outdim = 7
            
             self.bilinear = nn.Bilinear(bilinear_indim1, bilinear_indim2, bilinear_outdim, bias=False)
             
@@ -114,13 +114,13 @@ class BetaNet(nn.Module):
              self.bilinear2.weight[0,1,2] = -g*CFL/2
              self.bilinear2.weight[0,1,3] = -g*CFL/2
                 ### 1             
-             self.bilinear2.weight[0, 3:9, 4] = CFL/ 4 # alguns sao negativos
+             self.bilinear2.weight[0, 3:9, 4] = CFL/ 4
              self.bilinear2.weight[0, 2, 5] = CFL / 4
-             self.bilinear2.weight[0, 2, 6] = - CFL/ 4 # negativo
+             self.bilinear2.weight[0, 2, 6] = - CFL/ 4
              self.bilinear2.weight[0, 3, 5] = CFL / 4
-             self.bilinear2.weight[0, 4, 6] = CFL / 4 # negativo
-             self.bilinear2.weight[0, 5, 7] = CFL / 4 # negativo
-             self.bilinear2.weight[0, 7, 7] = CFL / 4 # negativo
+             self.bilinear2.weight[0, 4, 6] = CFL / 4
+             self.bilinear2.weight[0, 5, 7] = CFL / 4
+             self.bilinear2.weight[0, 7, 7] = CFL / 4
              self.bilinear2.weight[0, 6, 8] = CFL / 4
              self.bilinear2.weight[0, 8, 8] = CFL / 4
              for n in [4,5,7]:
@@ -164,9 +164,9 @@ class BetaNet(nn.Module):
         if self.typeA:
             # Reorganiza o vetor achatado em [Batch, 5 vizinhos, 4 variáveis por vizinho]
             x_h    = x[:, 0:32].view(-1, 8, 4)     #(j+1,j-1,j,i+1,i-1,j+2,i+1ej+1,i-1ej+1) - z_{t,t-1,t-2} e topo
-            zeta   = x[:, 32:34].view(-1, 2)    #(ij,j+1)
-            x_u    = x[:, 34:49].view(-1, 5, 3)    #(ij,j-1,j+1,i+1,i-1)                     - u_{t,t-1,t-2}
-            x_v    = x[:, 49:61].view(-1, 4, 3)    #(ij,i-1,j+1,i-1ej+1)                     - v_{t,t-1,t-2}
+            zeta   = x[:, 32:34].view(-1, 2)
+            x_u    = x[:, 34:49].view(-1, 5, 3)
+            x_v    = x[:, 49:61].view(-1, 4, 3)
             Dummy,f,g = x[:, -6].view(-1, 1),x[:, -5].view(-1, 1),x[:, -4].view(-1, 1)
             dx = x[:, -3].view(-1, 1)
             dy,dt  = x[:, -2].view(-1, 1),x[:, -1].view(-1, 1)
@@ -184,10 +184,10 @@ class BetaNet(nn.Module):
             v2   = x_v[:, :, 0]  # Todas as v2 de todos os vizinhos (ij,i-1,j+1,i-1ej+1)
             v1   = x_v[:, :, 1]  # Todas as v1
             v0   = x_v[:, :, 2]  # Todas as v0
-            x_top   = torch.stack((topo[:, 2],topo[:, 0]),dim=1)     #(ij,j+1)
-            x_zeta2 = torch.stack((h2[:, 2],h2[:, 0]),dim=1)     #(ij,j+1)
-            x_zeta1 = torch.stack((h1[:, 2],h1[:, 0]),dim=1)     #(ij,j+1)
-            x_zeta0 = torch.stack((h0[:, 2],h0[:, 0]),dim=1)     #(ij,j+1)
+            x_top   = torch.stack((topo[:, 2],topo[:, 0]),dim=1) 
+            x_zeta2 = torch.stack((h2[:, 2],h2[:, 0]),dim=1) 
+            x_zeta1 = torch.stack((h1[:, 2],h1[:, 0]),dim=1) 
+            x_zeta0 = torch.stack((h0[:, 2],h0[:, 0]),dim=1)
             
             h = h2 * (1.5 + self.beta) - (0.5 + 2 * self.beta) * h1 + self.beta * h0 + topo
             z_new = zeta*cf0 + x_zeta2 * cf1 + x_zeta1*cf2 + x_zeta0*cf3
@@ -203,24 +203,23 @@ class BetaNet(nn.Module):
             return [U_],None,None,None,None,None,None
             
         elif self.typeB:
-        # Reorganiza o vetor achatado em [Batch, 5 vizinhos, 4 variáveis por vizinho]
-            x_h = x[:, 0:20].view(-1, 5, 4)  #(j+1,j-1,ij,i+1,i-1) - z_{t,t-1,t-2} e topo
-            x_u = x[:, 20:26].view(-1, 2, 3) #(ij, j-1)                - u_{t,t-1,t-2}
-            x_v = x[:, 26:32].view(-1, 2, 3) #(ij i-1)                - v_{t,t-1,t-2}
+            x_h = x[:, 0:20].view(-1, 5, 4)
+            x_u = x[:, 20:26].view(-1, 2, 3)
+            x_v = x[:, 26:32].view(-1, 2, 3)
             #dx,dy,dt = x[:, -3].view(-1, 1),x[:, -2].view(-1, 1),x[:, -1].view(-1, 1)
 
-            h2 = x_h[:, :, 0]  # Todas as h2 de todos os vizinhos (j+1,j-1,ij,i+1,i-1)
-            h1 = x_h[:, :, 1]  # Todas as h1
-            h0 = x_h[:, :, 2]  # Todas as h0
-            topo = x_h[:, :, 3] # Todos os topos
+            h2 = x_h[:, :, 0]
+            h1 = x_h[:, :, 1]
+            h0 = x_h[:, :, 2]
+            topo = x_h[:, :, 3]
             h = h2 * (1.5 + self.beta) - (0.5 + 2 * self.beta) * h1 + self.beta * h0 + topo
-            u2 = x_u[:, :, 0]  # Todas as u2 de todos os vizinhos (ij, j-1)
-            u1 = x_u[:, :, 1]  # Todas as u1
-            u0 = x_u[:, :, 2]  # Todas as u0
+            u2 = x_u[:, :, 0]
+            u1 = x_u[:, :, 1]
+            u0 = x_u[:, :, 2]
             u = u2 * (1.5 + self.beta) - (0.5 + 2 * self.beta) * u1 + self.beta * u0
-            v2 = x_v[:, :, 0]  # Todas as v2 de todos os vizinhos (ij i-1)
-            v1 = x_v[:, :, 1]  # Todas as v1
-            v0 = x_v[:, :, 2]  # Todas as v0
+            v2 = x_v[:, :, 0]
+            v1 = x_v[:, :, 1]
+            v0 = x_v[:, :, 2]
             v = v2 * (1.5 + self.beta) - (0.5 + 2 * self.beta) * v1 + self.beta * v0
 #
             uv   = torch.concat((u,v),dim=1)
