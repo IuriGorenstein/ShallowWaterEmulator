@@ -131,7 +131,7 @@ class BetaNet(nn.Module):
              self.bilinear2.weight[0,11,10] = f*CFL/4
              self.bilinear2.weight[0,12,10] = f*CFL/4
 
-             self.bilinear2.weight.requires_grad = False
+             #self.bilinear2.weight.requires_grad = False
                    
         else: # zeta
             bilinear_indim1 = 5 # Drhs
