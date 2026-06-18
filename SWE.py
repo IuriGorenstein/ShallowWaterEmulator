@@ -1524,28 +1524,23 @@ def time_int(num_met,plot_ktimes = [0],
   return u2, v2, h2
 
 def Input_tensor(numet,state,variavel=0,mode='forward',Normalização=None,zeta_future=None,AB3=False):
-    # Grabs Domain variables formodel's input #
-    # variavel = 0: Sea Surface Height (Zeta)
-    # variavel = 1: U velocity
-    # variavel = 2: V velocity
-    
+ 
     dt =  numet.dom.dt
-
     ################################### Generates the Residuals ###############################        
     if variavel==0:     #Zeta
         if AB3:
             b  = pega_incremento2CROCO(numet,state,mode)  # PEGA CELULAS NECESSARIAS PARA O CALCULO DO INCREMENTO DO AB3    
         else:
             b = build_input_vector(numet, state, mode)
-            B = add_channels(  torch.from_numpy( b  ).contiguous() )
-            if Normalização is None:
-                Normalização = torch.zeros((2, B.shape[2])).to(B.device)
-                Normalização[1,:]=1
-            A = Normaliza_Tensor(B.clone(),Normalização)
-            A = A.to(dtype=torch.float32)
+            A = add_channels(  torch.from_numpy( b  ).contiguous() )
             return A
     else:
-        b  = pega_momento2CROCO(numet,state,variavel,mode,zeta_future)  # PEGA CELULAS NECESSARIAS PARA O CALCULO DO INCREMENTO DO AM4
+        if AB3:
+            b  = pega_momento2CROCO(numet,state,variavel,mode,zeta_future)  # PEGA CELULAS NECESSARIAS PARA O CALCULO DO INCREMENTO DO AM4
+        else:
+            b = build_input_vectorU(numet, state, variavel, mode, zeta_future)
+            A = add_channels(  b.contiguous() )
+            return A
     #############################################################################################
     ############## RESHAPES ##############################################
     B  = b                                      #numet.dom.dx ou numet.dom.dy
@@ -1565,22 +1560,18 @@ def Input_tensor(numet,state,variavel=0,mode='forward',Normalização=None,zeta_
     DY = add_channels( torch.from_numpy( DY.T.copy() ).contiguous() )
     DT = add_channels( torch.from_numpy( DT.T.copy() ).contiguous() )
     A = torch.concat( (B,DX,DY,DT) ,2) # 
-    if Normalização is None:
-        Normalização = torch.zeros((2, A.shape[2])).to(A.device)
-        Normalização[1,:]=1
-    # NORMALIZA INPUT_VECTOR #
-    A = Normaliza_Tensor(A.clone(),Normalização)
-    
-    A = A.to(dtype=torch.float32)
+
     if torch.isnan(A).any():
         print('Nan Values inside the input vector')
+        # Substituir NaNs por zero (ou pela média)
+        #A = torch.where(torch.isnan(A), torch.zeros_like(A), A)
         
     return A
     
 def pega_momento2CROCO(numet,state,variavel,mode='forward',zeta_new=None): #sis,past,paster,dx,dy,dt,MASCARA):
-    #  Lazy Input for Encode-Decode   #
-    # Grabs the tendency from the AM4 #
-    ###################################
+    #  Lazy Input for Encode-Decode test   #
+    #   Grabs the tendency from the AM4    #
+    ########################################
 
     ## OBS: Para acelerar essa parte, eu posso deixar de calcular os rhs e rhs_T, apenas passo os vetores de estado crus
     dx, dy = numet.dom.dx,numet.dom.dy
@@ -1610,13 +1601,13 @@ def pega_momento2CROCO(numet,state,variavel,mode='forward',zeta_new=None): #sis,
         
     VETOR_var = [[pres*c1 + past*c2 + paster*c3] for pres,past,paster in zip(state[0], state[1], state[2])]
     VETOR_var[0][0] = VETOR_var[0][0]+TOPO
-    zwrk = torch.tensor(cf0).to(cpu)*torch.as_tensor(zeta_new).to(cpu) + torch.from_numpy(cf1*state[0][0]).to(cpu)+ torch.from_numpy(cf2*state[1][0]).to(cpu) + torch.from_numpy(cf3*state[2][0]).to(cpu)
+    zwrk = torch.tensor(cf0).to(device)*torch.as_tensor(zeta_new).to(device) + torch.from_numpy(cf1*state[0][0]).to(device)+ torch.from_numpy(cf2*state[1][0]).to(device) + torch.from_numpy(cf3*state[2][0]).to(device)
         
-    f, g = numet.sw.f,torch.tensor(numet.sw.g).to(cpu)
+    f, g = numet.sw.f,torch.tensor(numet.sw.g).to(device)
     
     ##### Tendency calculation #####
     if isinstance(zwrk, torch.Tensor):
-        zwrk=zwrk.to(cpu)
+        zwrk=zwrk.to(device)
     utend,vtend = numet.tend(VETOR_var[1][0], VETOR_var[2][0], VETOR_var[0][0], new_z=zwrk) # .detach().cpu().numpy()
 
     if variavel == 1:
@@ -1644,8 +1635,6 @@ def build_input_vector(numet, state, mode='forward'):
     nx, ny = numet.sw.eta_b.shape
     topo_flat = numet.sw.eta_b.flatten() # (N,)
     
-    # Organiza H, U, V e achata logo
-    # h_flat[0] é o h2, h_flat[1] é o h1...
     if mode == 'forward':
         h_flat = [s[0].flatten() for s in state]
         u_flat = [s[1].flatten() for s in state]
@@ -1698,10 +1687,107 @@ def build_input_vector(numet, state, mode='forward'):
     dt_col = np.full(n_points, numet.dom.dt)
     padding = np.zeros(n_points)
     # Junta tudo horizontalmente
-    # Ordem: 20 colunas H + 6 colunas U + 6 colunas V + 1 padding + 5 constantes
+    # Ordem: 20 colunas H + 6 colunas U + 6 colunas V + 1 padding + 3 constantes
     all_cols = h_cols + u_cols + v_cols + [padding, dx_col, dy_col, dt_col]
     input_vector = np.column_stack(all_cols)
 
+    return input_vector
+
+def build_input_vectorU(numet, state, variavel, mode, new_zeta):
+    """
+    state[0] = [h_t,   u_t  , v_t  ]
+    state[1] = [h_t-1, u_t-1, v_t-1]
+    state[2] = [h_t-2, u_t-2, v_t-2]
+    """
+    try:
+        device = new_zeta.device
+    except:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    nx, ny = numet.sw.eta_b.shape
+    topo_flat = numet.sw.eta_b.flatten() # (N,)\
+    A, B = (1, 2) if variavel == 1 else (2, 1)
+    # Organiza H, U, V e achata logo
+    # h_flat[0] é o h2, h_flat[1] é o h1...
+    if mode == 'forward':
+        h_flat = [s[0].flatten() for s in state]
+        u_flat = [s[A].flatten() for s in state]
+        v_flat = [s[B].flatten() for s in state]
+    else:
+        h_flat = [state[i][0].flatten() for i in [2, 1, 0]]
+        u_flat = [state[i][A].flatten() for i in [2, 1, 0]]
+        v_flat = [state[i][B].flatten() for i in [2, 1, 0]]
+        
+    h_cols,nzeta_cols,u_cols,v_cols = [],[],[],[]
+    if variavel == 1:
+        # Construir H (32 colunas) Vizinhos: j+1, j-1, j, i+1, i-1, j+2, i+1ej+1, i-1ej+1
+        offsets_h = [(0,1), (0,-1), (0,0), (1,0), (-1,0), (0,2), (1,1),(-1,1)]
+        # Construir New Zeta (2 colunas) ij,j+1
+        offsets_z = [(0,0), (0,1)]
+        # Construir U (15 colunas) Vizinhos: (ij,j-1,j+1,i+1,i-1)  
+        offsets_u = [(0,0), (0,-1),(0,1),(1,0),(-1,0)]
+        # Construir V (12 colunas) Vizinhos: (ij,i-1,j+1,i-1ej+1)
+        offsets_v = [(0,0), (-1,0),(0,1),(-1,1)]
+    else:
+        offsets_h = [(1,0), (-1,0), (0,0), (0,1), (0,-1), (2,0), (1,1),(1,-1)]
+        # Construir New Zeta (2 colunas) ij,j+1
+        offsets_z = [(0,0), (1,0)]
+        # Construir V (15 colunas) Vizinhos: (ij,j-1,j+1,i+1,i-1)  
+        offsets_u = [(0,0), (-1,0),(1,0),(0,1),(0,-1)]
+        # Construir U (12 colunas) Vizinhos: (ij,j-1,i+1,i+1ej-1)
+        offsets_v = [(0,0), (0,-1),(1,0),(1,-1)]
+    
+    # Função auxiliar para pegar vizinhos de forma flat
+    def get_neighbor_flat(flat_array, shift_i, shift_j):
+        if isinstance(flat_array, np.ndarray):
+            arr = flat_array.reshape(nx, ny)
+            shifted = np.roll(arr, shift=(-shift_i, -shift_j), axis=(0, 1))
+            return shifted.flatten()
+        
+        arr = flat_array.view(nx, ny)
+        shifted = torch.roll(arr, shifts=(-shift_i, -shift_j), dims=(0, 1))
+        return shifted.flatten()
+
+    # H #
+    for si, sj in offsets_h:
+        h_cols.append(get_neighbor_flat(h_flat[0], si, sj)) # h2
+        h_cols.append(get_neighbor_flat(h_flat[1], si, sj)) # h1
+        h_cols.append(get_neighbor_flat(h_flat[2], si, sj)) # h0
+        h_cols.append(get_neighbor_flat(topo_flat, si, sj)) # topo
+
+    # Zeta New #
+    for si, sj in offsets_z:
+        nzeta_cols.append(get_neighbor_flat(new_zeta, si, sj)) # zeta_new
+    
+    # U #
+    for si, sj in offsets_u:
+        u_cols.append(get_neighbor_flat(u_flat[0], si, sj)) # u2
+        u_cols.append(get_neighbor_flat(u_flat[1], si, sj)) # u1
+        u_cols.append(get_neighbor_flat(u_flat[2], si, sj)) # u0
+
+    # V #
+    for si, sj in offsets_v:
+        v_cols.append(get_neighbor_flat(v_flat[0], si, sj)) # v2
+        v_cols.append(get_neighbor_flat(v_flat[1], si, sj)) # v1
+        v_cols.append(get_neighbor_flat(v_flat[2], si, sj)) # v0
+
+    # Parâmetros
+    n_points = nx * ny
+    #dx_1col = np.full(n_points, 1/numet.dom.dx)
+    #dy_1col = np.full(n_points, 1/numet.dom.dy)
+    f, g = np.full(n_points, numet.sw.f), np.full(n_points, numet.sw.g)
+    sinal = (-1)**(variavel-1)
+    dx_col = np.full(n_points, numet.dom.dx*sinal)
+    dy_col = np.full(n_points, numet.dom.dy)
+    dt_col = np.full(n_points, numet.dom.dt)
+    padding = np.ones(n_points)*sinal
+    # Junta tudo horizontalmente
+    # Ordem: 32 colunas H +  2 colunas new_Zeta + 15 colunas U + 12 colunas V + 1 padding + 3 constantes
+    all_cols = h_cols + nzeta_cols + u_cols + v_cols + [padding, f, g, dx_col, dy_col, dt_col]
+    all_cols_tensor = [
+        c if isinstance(c, torch.Tensor) else torch.from_numpy(c).to(device)
+        for c in all_cols]
+
+    input_vector = torch.column_stack(all_cols_tensor)
     return input_vector
     
 def pega_incremento2CROCO(numet,state,mode='forward'): #sis,past,paster,dx,dy,dt,MASCARA):
